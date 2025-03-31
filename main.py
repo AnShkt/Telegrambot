@@ -1,42 +1,45 @@
 import os
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler
 from dotenv import load_dotenv
 
-from flask import Flask, request  # нужен для веб-сервера
-
+# Загружаем токены из .env или Render Environment Variables
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # URL, который даст Render
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Например: https://твойбот.onrender.com
 
-# Telegram-бот
+# Инициализируем Telegram-бота
 app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-# Команды бота
+# Команда /start
 async def start(update: Update, context):
-    await update.message.reply_text("Привет! Я бот на webhook 😎")
+    await update.message.reply_text("Привет! Я работаю через Webhook 🔗")
 
+# Команда /help
 async def help_command(update: Update, context):
-    await update.message.reply_text("Я работаю на webhook. Всё круто!")
+    await update.message.reply_text("Вот что я умею:\n/start — приветствие\n/help — помощь")
 
+# Добавляем команды в приложение
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
 
 # Flask-сервер
 flask_app = Flask(__name__)
 
+# Обработка обновлений от Telegram
 @flask_app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
-def receive_update():
+def webhook():
     update = Update.de_json(request.get_json(force=True), app.bot)
     app.update_queue.put_nowait(update)
-    return "ok"
+    return "ok", 200
 
-# Устанавливаем webhook при запуске
+# Установка Webhook
 async def set_webhook():
     await app.bot.set_webhook(url=f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}")
 
-# Запускаем всё
+# Запуск
 if __name__ == "__main__":
     import asyncio
-    asyncio.run(set_webhook())  # устанавливаем webhook
+    asyncio.run(set_webhook())
     flask_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
